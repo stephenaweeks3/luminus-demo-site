@@ -149,12 +149,13 @@ export function useD360Profile(email: string | null) {
       // 3. Derive churn risk score (0–1, higher = more at risk).
       //    LMN_ChurnRiskScore__cio.value__c stores contract count (loyalty proxy):
       //    fewer contracts → less loyal → higher churn risk.
-      //    Formula: (10 - count) / 5, clamped 0–1 → 10+ contracts = no risk, ≤5 = full risk.
-      //    Marc (7 contracts) → 0.60; Anna (11 contracts) → 0.
+      //    Formula: (10 - count) / 4, clamped 0–1 → 10+ contracts = no risk.
+      //    Marc (7 contracts) → 0.75; Anna (11 contracts) → 0.
+      //    Divisor 4 (not 10) keeps Marc well above the 0.6 threshold even if CI drifts by ≤1.
       //    If CI absent (IIL gap), default to 0 so product signals drive the hero instead.
       const ciChurnRaw = ciRow['churn_score'] != null ? Number(ciRow['churn_score']) : null
       const churnRiskScore = ciChurnRaw != null
-        ? Math.max(0, Math.min(1, (10 - ciChurnRaw) / 5))
+        ? Math.max(0, Math.min(1, (10 - ciChurnRaw) / 4))
         : 0
       console.log('[D360] churnRiskScore:', churnRiskScore.toFixed(2), '(CI raw:', ciChurnRaw, ') tier:', ciRow['tier'])
 
