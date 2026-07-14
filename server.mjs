@@ -116,7 +116,9 @@ async function getCdpToken() {
 
 const app = express()
 
-// Inject core Bearer token then proxy to Salesforce org
+// Inject core Bearer token then proxy to Salesforce org.
+// Express strips the /services mount prefix from req.url, so we rewrite it back
+// otherwise requests hit /data/v62.0/... instead of /services/data/v62.0/...
 app.use('/services', async (req, res, next) => {
   try { req._sfToken = await getCoreToken() } catch (e) { return res.status(502).json({ error: e.message }) }
   next()
@@ -124,6 +126,7 @@ app.use('/services', async (req, res, next) => {
   target:       INSTANCE_URL,
   changeOrigin: true,
   secure:       true,
+  pathRewrite:  { '^': '/services' },
   on: {
     proxyReq: (proxyReq, req) => proxyReq.setHeader('Authorization', `Bearer ${req._sfToken}`),
   },
