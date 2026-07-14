@@ -146,16 +146,21 @@ export function useD360Profile(email: string | null) {
       }
       const orders = Array.from(orderMap.values())
 
-      // 3. If churn_score is null (IIL incomplete for this individual), fall back to
-      //    direct order count via CPE → SalesOrder (e.g. Marc's warehouse CPE has no IIL).
-      let orderCount: number | null = ciRow['churn_score'] != null ? Number(ciRow['churn_score']) : null
-      if (orderCount === null) {
+      // 3. Derive churn risk score (0–1, higher = more at risk):
+      //    - CI path: LMN_ChurnRiskScore__cio.value__c is a 0–10 scale (7 = 70% risk) → divide by 10
+      //    - Fallback: count orders directly; fewer orders = newer/less loyal customer = higher churn
+      const ciChurnRaw = ciRow['churn_score'] != null ? Number(ciRow['churn_score']) : null
+      let churnRiskScore = 0
+      if (ciChurnRaw != null) {
+        churnRiskScore = Math.min(ciChurnRaw, 10) / 10
+        console.log('[D360] CI churn_score:', ciChurnRaw, '→', churnRiskScore, 'tier:', ciRow['tier'])
+      } else {
         const fallRes = await cdpQuery(ORDER_COUNT_SQL(em))
         const fallCount = fallRes.data?.[0]?.['order_count']
-        orderCount = fallCount != null ? Number(fallCount) : null // null = no data, not 0 orders
-        console.log('[D360] fallback order count:', orderCount)
-      } else {
-        console.log('[D360] CI churn_score:', orderCount, 'tier:', ciRow['tier'])
+        if (fallCount != null) {
+          churnRiskScore = Math.max(0, 1 - Math.min(Number(fallCount), 10) / 10)
+          console.log('[D360] fallback order count:', fallCount, '→', churnRiskScore)
+        }
       }
 
       const tierRaw   = ciRow['tier']
@@ -172,9 +177,7 @@ export function useD360Profile(email: string | null) {
         lastName: contact.LastName,
         email: contact.Email,
         ci: {
-          // order count (1–10) → churn risk 0–1 (more orders = lower churn).
-          // null means CDP was unreachable — default to 0 so other signals (gas, solar) drive the hero.
-          churnRiskScore: orderCount != null ? Math.max(0, 1 - Math.min(orderCount, 10) / 10) : 0,
+          churnRiskScore,
           customerTier: tierRaw != null ? String(tierRaw) : 'Basic',
           totalEnergySpend: spendRaw != null ? Number(spendRaw) : 0,
           avgMonthlyBill: billRaw != null ? Number(billRaw) : 0,

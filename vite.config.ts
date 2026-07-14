@@ -73,6 +73,7 @@ export default defineConfig(() => {
               configure: (proxy) => {
                 proxy.on('proxyReq', (proxyReq) => {
                   proxyReq.setHeader('Authorization', `Bearer ${getCoreToken()}`)
+                  proxyReq.removeHeader('cookie')
                 })
               },
             },
@@ -84,9 +85,9 @@ export default defineConfig(() => {
               configure: (proxy) => {
                 proxy.on('proxyReq', (proxyReq) => {
                   proxyReq.setHeader('Authorization', `Bearer ${getCdpToken()}`)
-                  // CDP rejects requests that carry browser Origin headers
                   proxyReq.removeHeader('origin')
                   proxyReq.removeHeader('referer')
+                  proxyReq.removeHeader('cookie')
                 })
               },
             },
