@@ -94,5 +94,38 @@ export default defineConfig(() => {
           }
         : undefined,
     },
+    preview: {
+      port: Number(process.env.PORT ?? 4173),
+      strictPort: false,
+      proxy: hasOrg
+        ? {
+            '/services': {
+              target: INSTANCE_URL,
+              changeOrigin: true,
+              secure: true,
+              configure: (proxy) => {
+                proxy.on('proxyReq', (proxyReq) => {
+                  proxyReq.setHeader('Authorization', `Bearer ${getCoreToken()}`)
+                  proxyReq.removeHeader('cookie')
+                })
+              },
+            },
+            '/cdp-api': {
+              target: CDP_URL,
+              changeOrigin: true,
+              secure: true,
+              rewrite: (p) => p.replace(/^\/cdp-api/, ''),
+              configure: (proxy) => {
+                proxy.on('proxyReq', (proxyReq) => {
+                  proxyReq.setHeader('Authorization', `Bearer ${getCdpToken()}`)
+                  proxyReq.removeHeader('origin')
+                  proxyReq.removeHeader('referer')
+                  proxyReq.removeHeader('cookie')
+                })
+              },
+            },
+          }
+        : undefined,
+    },
   }
 })

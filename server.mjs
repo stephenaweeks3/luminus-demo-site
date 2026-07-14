@@ -173,10 +173,15 @@ app.post('/track', express.json(), async (req, res) => {
   res.json({ ok: true })
 })
 
+// Strip browser cookies from all API proxy routes early — the c360a Web SDK accumulates
+// cookies on the same domain and the browser sends them with every fetch, which can push
+// total header size past Node's limit and cause HTTP 431 before the proxy even runs.
+function stripCookies(req, _res, next) { delete req.headers.cookie; next() }
+
 // Inject core Bearer token then proxy to Salesforce org.
 // Express strips the /services mount prefix from req.url, so we rewrite it back
 // otherwise requests hit /data/v62.0/... instead of /services/data/v62.0/...
-app.use('/services', async (req, res, next) => {
+app.use('/services', stripCookies, async (req, res, next) => {
   try { req._sfToken = await getCoreToken() } catch (e) { return res.status(502).json({ error: e.message }) }
   next()
 }, createProxyMiddleware({
@@ -190,7 +195,7 @@ app.use('/services', async (req, res, next) => {
 }))
 
 // Inject CDP Bearer token then proxy to Data Cloud tenant
-app.use('/cdp-api', async (req, res, next) => {
+app.use('/cdp-api', stripCookies, async (req, res, next) => {
   try { req._cdpToken = await getCdpToken() } catch (e) { return res.status(502).json({ error: e.message }) }
   next()
 }, createProxyMiddleware({
