@@ -4,7 +4,7 @@ WORKDIR /app
 
 # Install dependencies (including dev deps needed for the build)
 COPY package*.json ./
-RUN npm ci
+RUN npm install
 
 # Build the React app
 COPY . .
