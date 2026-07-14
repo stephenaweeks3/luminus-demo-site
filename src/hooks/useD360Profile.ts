@@ -76,13 +76,6 @@ LEFT JOIN LMN_LastTariffReviewDate__cio tariff ON iil.UnifiedRecordId__c = tarif
 WHERE cpe.ssot__EmailAddress__c = '${email}'
 LIMIT 1`
 
-// Fallback: count orders directly via CPE → SalesOrder when IIL is incomplete.
-const ORDER_COUNT_SQL = (email: string) => `
-SELECT COUNT(so.ssot__Id__c) AS order_count
-FROM ssot__ContactPointEmail__dlm cpe
-JOIN ssot__SalesOrder__dlm so ON so.ssot__SoldToCustomerId__c = cpe.ssot__PartyId__c
-WHERE cpe.ssot__EmailAddress__c = '${email}'`
-
 // Orders + order lines in one query — grouped in JS after fetch.
 const ORDERS_SQL = (email: string) => `
 SELECT
