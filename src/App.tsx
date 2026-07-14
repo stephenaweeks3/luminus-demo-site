@@ -1,11 +1,16 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom'
-import { DemoProvider } from './context'
+import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom'
+import { DemoProvider, useDemo } from './context'
 import { Header } from './components/Header'
 import { DebugPanel } from './components/DebugPanel'
 import { HomePage } from './pages/HomePage'
 import { ProductPage } from './pages/ProductPage'
+import { useWebTracking } from './hooks/useWebTracking'
 
 function Layout() {
+  const { pathname } = useLocation()
+  const { profile } = useDemo()
+  useWebTracking(profile?.email ?? '', pathname)
+
   return (
     <>
       <Header />

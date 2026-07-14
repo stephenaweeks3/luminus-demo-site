@@ -115,6 +115,62 @@ async function getCdpToken() {
 // ── Express app ──────────────────────────────────────────────────────────────
 
 const app = express()
+app.use(express.json())
+
+// ── Web event tracker ────────────────────────────────────────────────────────
+// POSTs a single page-view / click event to the LMN_WebEvents_CRM ingest stream.
+// Always responds 2xx so the browser never sees an error from tracking.
+
+function httpsPost(url, body, headers) {
+  return new Promise((resolve, reject) => {
+    const u    = new URL(url)
+    const buf  = Buffer.from(JSON.stringify(body))
+    const opts = {
+      hostname: u.hostname,
+      port:     u.port || 443,
+      path:     u.pathname + u.search,
+      method:   'POST',
+      headers:  { 'Content-Type': 'application/json', 'Content-Length': buf.length, ...headers },
+    }
+    const req = https.request(opts, res => {
+      let raw = ''
+      res.on('data', c => raw += c)
+      res.on('end', () => resolve({ status: res.statusCode, body: raw }))
+    })
+    req.on('error', reject)
+    req.write(buf)
+    req.end()
+  })
+}
+
+app.post('/track', async (req, res) => {
+  const { session_id, email, page_url, page_category, event_type } = req.body ?? {}
+  try {
+    const cdpToken = await getCdpToken()
+    const event = {
+      event_id:      crypto.randomUUID(),
+      session_id:    session_id    ?? '',
+      email:         email         ?? '',
+      page_url:      page_url      ?? '',
+      page_category: page_category ?? '',
+      event_type:    event_type    ?? 'page_view',
+      event_time:    new Date().toISOString(),
+    }
+    const ingest = await httpsPost(
+      `${CDP_URL}/api/v1/ingest/sources/LMN_WebEvents_CRM`,
+      { data: [event] },
+      { Authorization: `Bearer ${cdpToken}` },
+    )
+    if (ingest.status >= 400) {
+      console.warn('[track] CDP', ingest.status, ingest.body.slice(0, 200))
+    } else {
+      console.log('[track]', event_type, page_url, email || '(anon)')
+    }
+  } catch (e) {
+    console.warn('[track] error:', e.message)
+  }
+  res.json({ ok: true })
+})
 
 // Inject core Bearer token then proxy to Salesforce org.
 // Express strips the /services mount prefix from req.url, so we rewrite it back
