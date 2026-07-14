@@ -1,0 +1,30 @@
+@import "tailwindcss";
+
+@theme {
+  --color-primary: #0C4B8F;
+  --color-primary-dark: #083570;
+  --color-primary-light: #1A6BC4;
+  --color-accent: #FF6B00;
+  --color-accent-dark: #CC5500;
+  --color-ink: #1A1A2E;
+  --color-muted: #6B7280;
+  --color-bg-alt: #F5F7FA;
+}
+
+@layer utilities {
+  .hero-gradient-default {
+    background: linear-gradient(135deg, #0C4B8F 0%, #1A6BC4 60%, #2E86DE 100%);
+  }
+  .hero-gradient-gas {
+    background: linear-gradient(135deg, #065F46 0%, #059669 60%, #34D399 100%);
+  }
+  .hero-gradient-solar {
+    background: linear-gradient(135deg, #92400E 0%, #D97706 50%, #FCD34D 100%);
+  }
+  .hero-gradient-battery {
+    background: linear-gradient(135deg, #1E3A5F 0%, #0C4B8F 50%, #22C55E 100%);
+  }
+  .hero-gradient-retention {
+    background: linear-gradient(135deg, #7F1D1D 0%, #B91C1C 50%, #F97316 100%);
+  }
+}
