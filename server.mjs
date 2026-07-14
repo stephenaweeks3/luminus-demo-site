@@ -115,11 +115,12 @@ async function getCdpToken() {
 // ── Express app ──────────────────────────────────────────────────────────────
 
 const app = express()
-app.use(express.json())
 
 // ── Web event tracker ────────────────────────────────────────────────────────
 // POSTs a single page-view / click event to the LMN_WebEvents_CRM ingest stream.
 // Always responds 2xx so the browser never sees an error from tracking.
+// express.json() is scoped to this route only — applying it globally would consume
+// the request body before http-proxy-middleware can forward it to /cdp-api.
 
 function httpsPost(url, body, headers) {
   return new Promise((resolve, reject) => {
@@ -143,7 +144,7 @@ function httpsPost(url, body, headers) {
   })
 }
 
-app.post('/track', async (req, res) => {
+app.post('/track', express.json(), async (req, res) => {
   const { session_id, email, page_url, page_category, event_type } = req.body ?? {}
   try {
     const cdpToken = await getCdpToken()
