@@ -13,6 +13,7 @@
  *   SF_PRIVATE_KEY    Full PEM string (newlines as \n or literal)
  */
 
+import http from 'http'
 import express from 'express'
 import { createProxyMiddleware } from 'http-proxy-middleware'
 import crypto from 'crypto'
@@ -220,9 +221,9 @@ app.get('*', (_req, res) => res.sendFile(join(DIST, 'index.html')))
 // ── Start ────────────────────────────────────────────────────────────────────
 
 const PORT = parseInt(process.env.PORT || '8080', 10)
-app.listen(PORT, () => {
+// Set maxHeaderSize in-process so it takes effect regardless of the start command
+http.createServer({ maxHeaderSize: 65536 }, app).listen(PORT, () => {
   console.log(`[server] luminus-demo running on http://0.0.0.0:${PORT}`)
   console.log(`[server] org: ${INSTANCE_URL}`)
-  // Warm the token cache on startup
   getCoreToken().catch(e => console.warn('[server] token warm-up failed:', e.message))
 })
