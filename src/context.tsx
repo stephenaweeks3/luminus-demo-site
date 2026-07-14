@@ -32,6 +32,11 @@ export function DemoProvider({ children }: { children: ReactNode }) {
   function setPersona(p: PersonaId) {
     setPersonaState(p)
     resetIntent()
+    const def = PERSONAS.find((d) => d.id === p)
+    if (def?.email) {
+      // Link this browser session to the known individual in Data Cloud
+      window.c360a?.('identify', { email: def.email })
+    }
   }
 
   return (

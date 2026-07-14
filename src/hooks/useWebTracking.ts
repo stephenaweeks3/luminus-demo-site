@@ -25,6 +25,16 @@ export function useWebTracking(email: string, pathname: string) {
     if (pathname === lastPath.current) return
     lastPath.current = pathname
 
+    const category = PAGE_CATEGORIES[pathname] ?? 'Other'
+
+    // Official Data Cloud Web SDK — primary tracking path
+    window.c360a?.('track', 'Page View', {
+      pageUrl:      pathname,
+      pageCategory: category,
+      sessionId:    getOrCreateSessionId(),
+    })
+
+    // Custom ingest endpoint — feeds LMN_WebEvents_CRM DMO with email for IR
     fetch('/track', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -32,7 +42,7 @@ export function useWebTracking(email: string, pathname: string) {
         session_id:    getOrCreateSessionId(),
         email,
         page_url:      pathname,
-        page_category: PAGE_CATEGORIES[pathname] ?? 'Other',
+        page_category: category,
         event_type:    'page_view',
       }),
     }).catch(() => { /* fire and forget */ })
