@@ -146,22 +146,17 @@ export function useD360Profile(email: string | null) {
       }
       const orders = Array.from(orderMap.values())
 
-      // 3. Derive churn risk score (0–1, higher = more at risk):
-      //    - CI path: LMN_ChurnRiskScore__cio.value__c is a 0–10 scale (7 = 70% risk) → divide by 10
-      //    - Fallback: count orders directly; fewer orders = newer/less loyal customer = higher churn
+      // 3. Derive churn risk score (0–1, higher = more at risk).
+      //    LMN_ChurnRiskScore__cio.value__c stores contract count (loyalty proxy):
+      //    fewer contracts → less loyal → higher churn risk.
+      //    Formula: (10 - count) / 5, clamped 0–1 → 10+ contracts = no risk, ≤5 = full risk.
+      //    Marc (7 contracts) → 0.60; Anna (11 contracts) → 0.
+      //    If CI absent (IIL gap), default to 0 so product signals drive the hero instead.
       const ciChurnRaw = ciRow['churn_score'] != null ? Number(ciRow['churn_score']) : null
-      let churnRiskScore = 0
-      if (ciChurnRaw != null) {
-        churnRiskScore = Math.min(ciChurnRaw, 10) / 10
-        console.log('[D360] CI churn_score:', ciChurnRaw, '→', churnRiskScore, 'tier:', ciRow['tier'])
-      } else {
-        const fallRes = await cdpQuery(ORDER_COUNT_SQL(em))
-        const fallCount = fallRes.data?.[0]?.['order_count']
-        if (fallCount != null) {
-          churnRiskScore = Math.max(0, 1 - Math.min(Number(fallCount), 10) / 10)
-          console.log('[D360] fallback order count:', fallCount, '→', churnRiskScore)
-        }
-      }
+      const churnRiskScore = ciChurnRaw != null
+        ? Math.max(0, Math.min(1, (10 - ciChurnRaw) / 5))
+        : 0
+      console.log('[D360] churnRiskScore:', churnRiskScore.toFixed(2), '(CI raw:', ciChurnRaw, ') tier:', ciRow['tier'])
 
       const tierRaw   = ciRow['tier']
       const spendRaw  = ciRow['total_spend']
