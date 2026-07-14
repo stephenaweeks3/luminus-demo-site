@@ -29,13 +29,18 @@ const INSTANCE_URL = (process.env.SF_INSTANCE_URL || '').replace(/\/$/, '')
 const CDP_URL      = (process.env.SF_CDP_URL      || '').replace(/\/$/, '')
 const CLIENT_ID    = process.env.SF_CLIENT_ID    || ''
 const USERNAME     = process.env.SF_USERNAME     || ''
-// Accept both literal newlines and escaped \n (common when pasting PEM into env var fields)
-const PRIVATE_KEY  = (process.env.SF_PRIVATE_KEY || '').replace(/\\n/g, '\n')
+// Normalize the PEM key: handle escaped \n, CRLF, and stray CR characters
+const PRIVATE_KEY  = (process.env.SF_PRIVATE_KEY || '')
+  .replace(/\\n/g, '\n')
+  .replace(/\r\n/g, '\n')
+  .replace(/\r/g, '\n')
+  .trim()
 
 if (!INSTANCE_URL || !CDP_URL || !CLIENT_ID || !USERNAME || !PRIVATE_KEY) {
   console.error('[server] Missing required env vars: SF_INSTANCE_URL, SF_CDP_URL, SF_CLIENT_ID, SF_USERNAME, SF_PRIVATE_KEY')
   process.exit(1)
 }
+console.log(`[server] key: ${PRIVATE_KEY.split('\n')[0].trim()} … (${PRIVATE_KEY.split('\n').length} lines)`)
 
 // ── Token helpers ────────────────────────────────────────────────────────────
 
