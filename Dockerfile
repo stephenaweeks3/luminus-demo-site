@@ -6,7 +6,8 @@ WORKDIR /app
 COPY package*.json ./
 RUN npm install
 
-# Build the React app
+# Build the React app — ARG busts the layer cache so every deploy gets fresh source
+ARG CACHEBUST=2026-07-15b
 COPY . .
 RUN npm run build
 
