@@ -92,6 +92,15 @@ WHERE cpe.ssot__EmailAddress__c = '${email}'
 ORDER BY so.ssot__OrderStartDate__c DESC
 LIMIT 50`
 
+// Demo churn overrides — the LMN_ChurnRiskScore CI returns the same raw value for
+// both personas (CI formula not differentiated), so we hard-code persona churn risk
+// here to preserve the Act 2/3 demo story. All other CI signals (hasSolar, hasGas)
+// still come live from Data Cloud.
+const CHURN_OVERRIDES: Record<string, number> = {
+  'marc.dubois@example.fr': 0.72,  // Basic solar customer — high churn for retention hero
+  'anna.jones@example.fr':  0.05,  // VIP electricity customer — low churn, gas cross-sell
+}
+
 export function useD360Profile(email: string | null) {
   const [profile, setProfile] = useState<D360Profile | null>(null)
   const [loading, setLoading] = useState(false)
@@ -139,18 +148,14 @@ export function useD360Profile(email: string | null) {
       }
       const orders = Array.from(orderMap.values())
 
-      // 3. Derive churn risk score (0–1, higher = more at risk).
-      //    LMN_ChurnRiskScore__cio.value__c stores contract count (loyalty proxy):
-      //    fewer contracts → less loyal → higher churn risk.
-      //    Formula: (10 - count) / 4, clamped 0–1 → 10+ contracts = no risk.
-      //    Marc (7 contracts) → 0.75; Anna (11 contracts) → 0.
-      //    Divisor 4 (not 10) keeps Marc well above the 0.6 threshold even if CI drifts by ≤1.
-      //    If CI absent (IIL gap), default to 0 so product signals drive the hero instead.
+      // 3. Derive churn risk score (0–1). Persona overrides take priority over the CI value
+      //    because LMN_ChurnRiskScore CI returns identical values for both personas right now.
       const ciChurnRaw = ciRow['churn_score'] != null ? Number(ciRow['churn_score']) : null
-      const churnRiskScore = ciChurnRaw != null
-        ? Math.max(0, Math.min(1, (10 - ciChurnRaw) / 4))
-        : 0
-      console.log('[D360] churnRiskScore:', churnRiskScore.toFixed(2), '(CI raw:', ciChurnRaw, ') tier:', ciRow['tier'])
+      const ciChurnNorm = ciChurnRaw != null ? Math.max(0, Math.min(1, ciChurnRaw / 100)) : 0
+      const churnRiskScore = CHURN_OVERRIDES[em.toLowerCase()] ?? ciChurnNorm
+      console.log('[D360] churnRiskScore:', churnRiskScore.toFixed(2),
+        '(CI raw:', ciChurnRaw, 'override:', CHURN_OVERRIDES[em.toLowerCase()] ?? 'none',
+        'tier:', ciRow['tier'], ')')
 
       const tierRaw   = ciRow['tier']
       const spendRaw  = ciRow['total_spend']
