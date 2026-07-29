@@ -35,12 +35,19 @@ const PRIVATE_KEY  = (process.env.SF_PRIVATE_KEY || '')
   .replace(/\r\n/g, '\n')
   .replace(/\r/g, '\n')
   .trim()
+// Pre-obtained access token for orgs that block external OAuth token requests (e.g. pc-rnd).
+// When set, token exchange is skipped entirely. Refresh by running scripts/refresh-render-token.py.
+const STATIC_CORE_TOKEN = process.env.SF_ACCESS_TOKEN || ''
 
 if (!INSTANCE_URL || !CDP_URL || !CLIENT_ID || !USERNAME || !PRIVATE_KEY) {
   console.error('[server] Missing required env vars: SF_INSTANCE_URL, SF_CDP_URL, SF_CLIENT_ID, SF_USERNAME, SF_PRIVATE_KEY')
   process.exit(1)
 }
-console.log(`[server] key: ${PRIVATE_KEY.split('\n')[0].trim()} … (${PRIVATE_KEY.split('\n').length} lines)`)
+if (STATIC_CORE_TOKEN) {
+  console.log('[server] SF_ACCESS_TOKEN set — skipping OAuth token exchange')
+} else {
+  console.log(`[server] key: ${PRIVATE_KEY.split('\n')[0].trim()} … (${PRIVATE_KEY.split('\n').length} lines)`)
+}
 
 // ── Token helpers ────────────────────────────────────────────────────────────
 
@@ -94,7 +101,13 @@ async function getCoreToken() {
   const now = Date.now()
   if (_coreCache && now - _coreCache.fetchedAt < 4 * 60 * 1000) return _coreCache.token
 
-  // Prefer refresh_token grant (avoids org-level JWT-bearer restrictions on pc-rnd orgs)
+  // SF_ACCESS_TOKEN: pre-obtained token, bypasses org IP restriction entirely
+  if (STATIC_CORE_TOKEN) {
+    _coreCache = { token: STATIC_CORE_TOKEN, fetchedAt: now }
+    return STATIC_CORE_TOKEN
+  }
+
+  // Refresh token grant (also blocked on pc-rnd from external IPs, but kept as fallback)
   const REFRESH_TOKEN = process.env.SF_REFRESH_TOKEN || ''
   if (REFRESH_TOKEN) {
     const resp = await postForm(`${INSTANCE_URL}/services/oauth2/token`, {
@@ -110,7 +123,7 @@ async function getCoreToken() {
     console.warn('[server] refresh_token failed:', JSON.stringify(resp), '— falling back to JWT')
   }
 
-  // Fall back to JWT bearer
+  // JWT bearer (blocked on pc-rnd from external IPs, kept as last resort)
   const resp = await postForm(`${INSTANCE_URL}/services/oauth2/token`, {
     grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer',
     assertion:  makeJWT(),
