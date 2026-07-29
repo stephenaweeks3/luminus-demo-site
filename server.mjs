@@ -93,13 +93,31 @@ function postForm(url, params, extraHeaders = {}) {
 async function getCoreToken() {
   const now = Date.now()
   if (_coreCache && now - _coreCache.fetchedAt < 4 * 60 * 1000) return _coreCache.token
+
+  // Prefer refresh_token grant (avoids org-level JWT-bearer restrictions on pc-rnd orgs)
+  const REFRESH_TOKEN = process.env.SF_REFRESH_TOKEN || ''
+  if (REFRESH_TOKEN) {
+    const resp = await postForm(`${INSTANCE_URL}/services/oauth2/token`, {
+      grant_type:    'refresh_token',
+      client_id:     CLIENT_ID,
+      refresh_token: REFRESH_TOKEN,
+    })
+    if (resp.access_token) {
+      _coreCache = { token: resp.access_token, fetchedAt: now }
+      console.log('[server] core token refreshed via refresh_token')
+      return resp.access_token
+    }
+    console.warn('[server] refresh_token failed:', JSON.stringify(resp), '— falling back to JWT')
+  }
+
+  // Fall back to JWT bearer
   const resp = await postForm(`${INSTANCE_URL}/services/oauth2/token`, {
     grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer',
     assertion:  makeJWT(),
   })
   if (!resp.access_token) throw new Error(`Core token failed: ${JSON.stringify(resp)}`)
   _coreCache = { token: resp.access_token, fetchedAt: now }
-  console.log('[server] core token refreshed')
+  console.log('[server] core token refreshed via JWT')
   return resp.access_token
 }
 
